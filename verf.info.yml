@@ -1,0 +1,6 @@
+name: Views Entity Reference Filter
+description: Provides Views filters for entity reference fields.
+core: 8.x
+type: module
+dependencies:
+  - plugin

@@ -1,0 +1,127 @@
+<?php
+
+/**
+ * @file
+ * Contains hook implementations.
+ */
+
+use Drupal\Core\Entity\Sql\SqlEntityStorageInterface;
+use Drupal\Core\Field\FieldDefinitionInterface;
+
+/**
+ * Implements hook_views_data_alter().
+ */
+function verf_views_data_alter(array &$data) {
+//  var_export($data['node__field_article']['field_article_target_id']['filter']);
+  $data['node__field_article']['field_article_target_id_verf'] = [
+    'title' => t('Article (VERF)'),
+    'group' => $data['node__field_article']['field_article_target_id']['group'],
+    'help' => $data['node__field_article']['field_article_target_id']['help'],
+    'filter' => [
+      'field' => 'field_article_target_id',
+      'table' => 'node__field_article',
+      'id' => 'verf',
+      'additional fields' => [],
+      'field_name' => 'field_article',
+      'entity_type' => 'node',
+      'allow empty' => TRUE,
+      // @todo Set from field definition.
+      'verf_target_entity_type_id' => 'node',
+    ],
+  ];
+//  var_dump($data['node__field_article']);
+//  var_dump($data['node_revision__field_article']);
+  return;
+  $entity_type_manager = \Drupal::entityTypeManager();
+  /** @var \Drupal\Core\Entity\EntityFieldManagerInterface $entity_field_manager */
+  $entity_field_manager = \Drupal::service('entity_field.manager');
+  /** @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface $entity_type_bundle_info */
+  $entity_type_bundle_info = \Drupal::service('entity_type.bundle.info');
+
+  foreach ($entity_type_manager->getDefinitions() as $entity_type_id => $entity_type) {
+    $entity_storage = $entity_type_manager->getStorage($entity_type_id);
+
+    if (!($entity_storage instanceof SqlEntityStorageInterface)) {
+      continue;
+    }
+
+    $table_mapping = $entity_storage->getTableMapping();
+    if (!$table_mapping) {
+      continue;
+    }
+
+    $field_definitions = $entity_field_manager->getBaseFieldDefinitions($entity_type_id);
+
+    // Determine table names.
+    $base_table = $entity_type->getBaseTable() ?: $entity_type_id;
+    $data_table = '';
+    if ($entity_type->isTranslatable()) {
+      $data_table = $entity_type->getDataTable() ?: $entity_type_id . '_field_data';
+    }
+    $revision_table = '';
+    if ($entity_type->isRevisionable()) {
+      $revision_table = $entity_type->getRevisionTable() ?: $entity_type_id . '_revision';
+    }
+
+    // Fetch all fields that can appear in both the base table and the data
+    // table.
+    $entity_keys = $entity_type->getKeys();
+    $duplicate_fields = array_intersect_key($entity_keys, array_flip(['id', 'revision', 'bundle']));
+    // Iterate over each table we have so far and collect field data for each.
+    // Based on whether the field is in the field_definitions provided by the
+    // entity manager.
+    // @todo We should better just rely on information coming from the entity
+    //   storage.
+    // @todo https://www.drupal.org/node/2337511
+    foreach ($table_mapping->getTableNames() as $table) {
+      foreach ($table_mapping->getFieldNames($table) as $field_name) {
+        // To avoid confusing duplication in the user interface, for fields
+        // that are on both base and data tables, only add them on the data
+        // table (same for revision vs. revision data).
+        if ($data_table && ($table === $base_table || $table === $revision_table) && in_array($field_name, $duplicate_fields)) {
+          continue;
+        }
+
+        // Create a dummy instance to retrieve property definitions.
+        $field_column_mapping = $table_mapping->getColumnNames($field_name);
+
+        $field_definition_type = $field_definitions[$field_name]->getType();
+        if ($field_definition_type !== 'entity_reference') {
+          continue;
+        }
+
+        // Add all properties to views table data. We need an entry for each
+        // column of each field, with the first one given special treatment.
+        $multiple = (count($field_column_mapping) > 1);
+        foreach ($field_column_mapping as $field_column_name => $schema_field_name) {
+          $views_field_name = ($multiple) ? $field_name . '__' . $field_column_name : $field_name;
+          $data[$table][$views_field_name]['filter']['id'] = 'verf';
+          $data[$table][$views_field_name]['filter']['verf_target_entity_type_id'] = 'verf';
+        }
+        var_dump($data[$table][$views_field_name]);
+      }
+    }
+  }
+
+
+
+  // @todo Maak een configurable ER field, en reverse engineer daar de views data van. Documenteren dat er momenteel alleen support voor configurable fields is, en dat base fields wellicht later komen.
+
+
+
+
+
+
+
+}
+
+function verf_field_data(FieldDefinitionInterface $field_definition, array &$table_data) {
+  $data['verf_target_id'] = [
+    'real field' => 'target_id',
+    'filter' => [
+      'title' => t('@todo'),
+      'id' => 'verf',
+      'verf_target_entity_type_id' => $field_definition->getSetting('target_type'),
+    ],
+  ];
+}

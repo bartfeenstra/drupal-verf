@@ -1,0 +1,9 @@
+views.filter.verf:
+  type: views_filter
+  mapping:
+    entity_reference_selection_id:
+      type: string
+      label: Entity reference selection ID
+    entity_reference_selection_handler_settings:
+      type: entity_reference_selection.[%parent.entity_reference_selection_id]
+      label: Entity reference selection handler settings
