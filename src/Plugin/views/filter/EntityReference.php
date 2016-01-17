@@ -12,6 +12,7 @@ use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\plugin\Plugin\Plugin\PluginSelector\PluginSelectorManagerInterface;
 use Drupal\plugin\PluginType\PluginTypeInterface;
 use Drupal\verf\EntityReferenceSelectionManagerDecorator;
+use Drupal\verf\ViewsHandlerFormState;
 use Drupal\views\Plugin\views\filter\InOperator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -108,8 +109,10 @@ class EntityReference extends InOperator implements ContainerFactoryPluginInterf
    */
   public function buildOptionsForm(&$form, FormStateInterface $form_state) {
     parent::buildOptionsForm($form, $form_state);
+    $subform = [];
+    $subform_state = new ViewsHandlerFormState($form_state);
     $entity_reference_selection_selector = $this->getPluginSelector($form_state);
-    $form['entity_reference_selection'] = $entity_reference_selection_selector->buildSelectorForm([], $form_state);
+    $form['entity_reference_selection'] = $entity_reference_selection_selector->buildSelectorForm($subform, $subform_state);
 
     return $form;
   }
@@ -119,8 +122,10 @@ class EntityReference extends InOperator implements ContainerFactoryPluginInterf
    */
   public function validateOptionsForm(&$form, FormStateInterface $form_state) {
     parent::validateOptionsForm($form, $form_state);
+    $subform = $form['entity_reference_selection'];
+    $subform_state = new ViewsHandlerFormState($form_state);
     $entity_reference_selection_selector = $this->getPluginSelector($form_state);
-    $entity_reference_selection_selector->validateSelectorForm($form['entity_reference_selection'], $form_state);
+    $entity_reference_selection_selector->validateSelectorForm($subform, $subform_state);
   }
 
   /**
@@ -128,8 +133,10 @@ class EntityReference extends InOperator implements ContainerFactoryPluginInterf
    */
   public function submitOptionsForm(&$form, FormStateInterface $form_state) {
     parent::submitOptionsForm($form, $form_state);
+    $subform = $form['entity_reference_selection'];
+    $subform_state = new ViewsHandlerFormState($form_state);
     $entity_reference_selection_selector = $this->getPluginSelector($form_state);
-    $entity_reference_selection_selector->submitSelectorForm($form['entity_reference_selection'], $form_state);
+    $entity_reference_selection_selector->submitSelectorForm($subform, $subform_state);
     // Views magically sets all submitted form values as plugin options. We must
     // therefore unset any values submitted by the entity reference selection
     // plugin form, and add the ID and configuration of the selected plugin.
@@ -157,7 +164,10 @@ class EntityReference extends InOperator implements ContainerFactoryPluginInterf
     $entity_reference_selection_manager = $this->getPluginManager();
     $plugin_selector->setSelectablePluginDiscovery($entity_reference_selection_manager);
     $plugin_selector->setSelectablePluginFactory($entity_reference_selection_manager);
-    $selected_entity_reference_selection = $entity_reference_selection_manager->createInstance($this->options['entity_reference_selection_id'], $this->options['entity_reference_selection_handler_settings']);
+    $entity_reference_selection_configuration = [
+      'handler_settings' => $this->options['entity_reference_selection_handler_settings'],
+    ];
+    $selected_entity_reference_selection = $entity_reference_selection_manager->createInstance($this->options['entity_reference_selection_id'], $entity_reference_selection_configuration);
     $plugin_selector->setSelectedPlugin($selected_entity_reference_selection);
     $plugin_selector->setRequired();
     $plugin_selector->setLabel($this->t('Selection method'));
@@ -172,7 +182,7 @@ class EntityReference extends InOperator implements ContainerFactoryPluginInterf
    * @return \Drupal\Component\Plugin\PluginManagerInterface
    */
   protected function getPluginManager() {
-    return new EntityReferenceSelectionManagerDecorator($this->targetEntityTypeId, $this->entityReferenceSelectionPluginType->getPluginManager());;
+    return new EntityReferenceSelectionManagerDecorator($this->targetEntityTypeId, $this->entityReferenceSelectionPluginType->getPluginManager());
   }
 
   /**
